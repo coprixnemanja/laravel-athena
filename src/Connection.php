@@ -282,7 +282,7 @@ class Connection extends PostgresConnection
                     }
 
                 } else if ($queryStatus == 'RUNNING' or $queryStatus == 'QUEUED') {
-                    sleep(1);
+                    continue;
                 }
             }
 
@@ -337,14 +337,19 @@ class Connection extends PostgresConnection
         $result = [];
         $start = microtime(true);
         if ($executionResponse = $this->executeQuery($query, $bindings)) {
-            $S3OutputLocation = $executionResponse['QueryExecution']['ResultConfiguration']['OutputLocation'];
-            $s3FilePath = '/' . $this->config['output_folder'] . '/' . basename($S3OutputLocation);
-            $localFilePath = storage_path(basename($s3FilePath));
-
-            if ($this->downloadFileFromS3ToLocalServer($s3FilePath, $localFilePath)) {
-                $this->localFilePath = $localFilePath;
-                $result = $this->formatCSVFileQueryResults($this->localFilePath);
-                unlink($this->localFilePath);
+            $athena_result = $this->athenaClient->GetQueryResults([
+                "QueryExecutionId" => $executionResponse['QueryExecution']['QueryExecutionId']
+            ]);
+            $athena_result = $athena_result['ResultSet']['Rows'];
+            for ($i=1; $i < count($athena_result); $i++) { 
+                $current = [];
+                for ($j=0; $j < count($athena_result[$i]['Data']); $j++) { 
+                    if(isset($athena_result[$i]['Data'][$j]['VarCharValue']))
+                    $current[$athena_result[0]['Data'][$j]['VarCharValue']] = $athena_result[$i]['Data'][$j]['VarCharValue'];
+                    else
+                    $current[$athena_result[0]['Data'][$j]['VarCharValue']] = "";
+                }
+                $result[] = $current;
             }
         }
         $this->logQuery(

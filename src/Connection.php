@@ -282,7 +282,7 @@ class Connection extends PostgresConnection
                     }
 
                 } else if ($queryStatus == 'RUNNING' or $queryStatus == 'QUEUED') {
-                    continue;
+                    sleep(0.1)
                 }
             }
 
